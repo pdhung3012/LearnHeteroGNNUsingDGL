@@ -10,6 +10,7 @@ from c2nl.encoders.encoder import EncoderBase
 from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
+# aaaa
 
 class RNNEncoder(EncoderBase):
     """ A generic recurrent neural network encoder.
