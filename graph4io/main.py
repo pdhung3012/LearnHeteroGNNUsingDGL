@@ -10,7 +10,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 from torch.utils.data import Subset
 
-dataset_pg = dgl.data.CSVDataset('./dgl-csv-benchmark-test-rodinia')
+dataset_pg = dgl.data.CSVDataset('./csvFiles')
 dataset_ll = torch.load('./graph_list_benchmark_test_all_pg_plus_rodinia.pt')
 
 test_idx = []
