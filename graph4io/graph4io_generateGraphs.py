@@ -131,6 +131,7 @@ for i in range(0,len(lstHeaderCols)-1):
     lstYamlTest.append(strNode)
 
 
+
 f1=open(fopCsvGNNTrain+'meta.yaml','w')
 f1.write('\n'.join(lstYamlTrain))
 f1.close()
