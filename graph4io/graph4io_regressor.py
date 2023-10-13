@@ -1,3 +1,5 @@
+import traceback
+
 import dgl
 import torch
 import torch.nn.functional as F
@@ -12,14 +14,14 @@ from torch.utils.data import Subset
 import tensorflow as tf
 from sklearn.metrics import *
 
-dataset_pg = dgl.data.CSVDataset('./csvFiles',force_reload=True)
-# dataset_pg = dgl.data.CSVDataset('./csvGraph4IO/train/')
+dataset_pg_train = dgl.data.CSVDataset('./csvGraph4IO_train/',force_reload=True)
+dataset_pg_test = dgl.data.CSVDataset('./csvGraph4IO_test/',force_reload=True)
 # dataset_ll = torch.load('./graph_list_benchmark_test_all_pg_plus_rodinia.pt')
-
-test_idx = list(range(0,30))
-train_idx = list(range(0,300))
-ind_count = 0
-
+#
+test_idx = list(range(0,5))
+train_idx = list(range(0,3))
+# ind_count = 0
+#
 # for data_ll in dataset_ll:
 #     ll_file_name = data_ll[3]['file_name'].split('/')[3]
 #     class_name = int(data_ll[3]['file_name'].split('/')[2])
@@ -32,8 +34,7 @@ ind_count = 0
 class RGCN(nn.Module):
     def __init__(self, in_feats, hid_feats, out_feats, rel_names):
         super().__init__()
-        # print(rel_names)
-        # print('out feat {}'.format(out_feats))
+        # print('out_features {}'.format(out_feats))
         self.conv1 = dglnn.HeteroGraphConv({
             rel: dglnn.GraphConv(in_feats, hid_feats)
             for rel in rel_names}, aggregate='sum')
@@ -79,15 +80,23 @@ class HeteroRegressor(nn.Module):
     def forward(self, g):
         h = g.ndata['feat']
         h = self.rgcn(g, h)
+        # print(h)
         with g.local_scope():
+            # print('go inside')
+            # try:
             g.ndata['h'] = h
             hg = 0
-
+            print(g.ntypes)
             for ntype in g.ntypes:
-                # print('ntyoe {}'.format(ntype))
+                print('info ntypes {}'.format(ntype))
                 hg = hg + dgl.mean_nodes(g, 'h', ntype=ntype)
+
+            # except Exception as e:
+            #     traceback.print_exc()
+                # return torch.Tensor(0.0)
+
                 # pass
-            return self.regressor(hg)
+        return self.regressor(hg)
 
 whole_exp = 0
 
@@ -95,24 +104,62 @@ prev_max_num_correct = -1000
 
 flag_15 = 0
 
-num_examples = len(dataset_pg)
+num_examples = len(dataset_pg_train)
 
 output_final = []
 label_final = []
 
-print('train_idx {}\ntest_idx {}'.format(train_idx,test_idx))
 train_sampler = SubsetRandomSampler(train_idx)
-dataset_test = Subset(dataset_pg, test_idx)
+test_sampler = SubsetRandomSampler(test_idx)
+# dataset_test = Subset(dataset_pg, test_idx)
+fopResult='/home/hungphd/media/aiio/results/lightGBM_subset/'
 
-etypes = [('control', 'control', 'control'), ('control', 'call', 'control'), ('control', 'data', 'variable'), ('variable', 'data', 'control')]
-# , ('variable', 'data', 'control')
+# lstSubsetFeaturesPositive=list(range(0,45))
+# lstSubsetFeaturesPositive.remove(2)
+# lstSubsetFeaturesPositive.remove(3)
+# lstSubsetFeaturesPositive.remove(4)
+# lstSubsetFeaturesPositive.remove(5)
+# lstSubsetFeaturesPositive.remove(6)
+# lstSubsetFeaturesPositive.remove(1)
+# lstSubsetFeaturesPositive.remove(11)
+# lstSubsetFeaturesPositive.remove(12)
+lstSubsetFeaturesPositive=[9,12,13]
+
+
+
+fpStat=fopResult+'stat.txt'
+f1=open(fpStat,'r')
+arrLines=f1.read().split('\n')
+f1.close()
+lstHeaderCols=[]
+lstHeaderIndexes=[]
+lstFullHeaderCols=[]
+for i in range(1,len(arrLines)-1):
+    colName=arrLines[i].split('\t')[0]
+    realIndex=i-1
+    lstFullHeaderCols.append(colName)
+    if realIndex in lstSubsetFeaturesPositive:
+        lstHeaderCols.append(colName)
+        lstHeaderIndexes.append(realIndex)
+
+dictEdges={}
+for i in range(0,len(lstHeaderCols)-1):
+    colCurrent=lstHeaderCols[i]
+    colNext=lstHeaderCols[i+1]
+    nameEdge='{}_AB_{}'.format(colCurrent,colNext)
+    dictEdges[nameEdge]=(colCurrent,nameEdge,colNext)
+    # nameEdgeReverse = '{}_BA_{}'.format(colNext,colCurrent)
+    # dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
+etypes=list(dictEdges.values())
+print(etypes)
+# etypes = [('control', 'control', 'control'), ('control', 'call', 'control'), ('control', 'data', 'variable'), ('variable', 'data', 'control')]
 # class_names = ['Private Clause', 'Reduction Clause']
 
-train_dataloader_pg = GraphDataLoader(dataset_pg, shuffle=False, batch_size=100, sampler=train_sampler)
-test_dataloader_pg = GraphDataLoader(dataset_test, batch_size=100)
+train_dataloader_pg = GraphDataLoader(dataset_pg_train, shuffle=False, batch_size=5, sampler=train_sampler)
+test_dataloader_pg = GraphDataLoader(dataset_pg_test, shuffle=False, batch_size=5)
 
 
-model_pg = HeteroRegressor(120, 64, 1, etypes)
+model_pg = HeteroRegressor(10, 8, 1, etypes)
 
 # model_pg = torch.load('./model-rodinia-best.pt')
 # opt = torch.optim.Adam(model_pg.parameters(), lr=0.01)
@@ -127,7 +174,7 @@ model_pg = HeteroRegressor(120, 64, 1, etypes)
 
 
 opt = torch.optim.Adam(model_pg.parameters())
-cross_entropy_loss = nn.CrossEntropyLoss()
+# cross_entropy_loss = nn.CrossEntropyLoss()
 best_loss=10000
 fpBestModel='./best_model.pt'
 for epoch in range(20):

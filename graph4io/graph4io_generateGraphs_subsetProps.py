@@ -7,26 +7,22 @@ import traceback
 from utils import *
 from UtilGetFeaturesInfos import *
 import time
-
+import random
 
 
 file_tot_performace_tagged="/home/hungphd/media/aiio/data/sample_train.csv"
 fpPreprocessFile="/home/hungphd/media/aiio/data/sample_train_small.csv"
 
-# lstSubsetFeaturesPositive=[37,40,29,33,38,30,34,28,31,35]
-# lstSubsetFeaturesPositive=[37,40,29,33,38]
-# lstSubsetFeaturesPositive=[25,24,14,16,8,19,21,20,43,44]
-# lstSubsetFeaturesPositive=[25,24,14,16,8]
-# lstSubsetFeaturesPositive=[37,40,29,33,38,30,34,28,31,35,25,24,14,16,8,19,21,20,43,44]
-lstSubsetFeaturesPositive=list(range(0,45))
-# lstSubsetFeaturesPositive.remove(0)
-lstSubsetFeaturesPositive.remove(2)
-lstSubsetFeaturesPositive.remove(3)
-lstSubsetFeaturesPositive.remove(4)
-lstSubsetFeaturesPositive.remove(5)
-# lstSubsetFeaturesPositive.remove(22)
+# lstSubsetFeaturesPositive=list(range(0,45))
+# lstSubsetFeaturesPositive.remove(2)
+# lstSubsetFeaturesPositive.remove(3)
+# lstSubsetFeaturesPositive.remove(4)
+# lstSubsetFeaturesPositive.remove(5)
 # lstSubsetFeaturesPositive.remove(6)
-# lstSubsetFeaturesPositive.remove(18)
+# lstSubsetFeaturesPositive.remove(1)
+# lstSubsetFeaturesPositive.remove(11)
+# lstSubsetFeaturesPositive.remove(12)
+lstSubsetFeaturesPositive=[9,12,13]
 
 time_str=time.strftime("%Y%m%d-%H%M%S")
 fopResult='/home/hungphd/media/aiio/results/lightGBM_subset/'
@@ -74,10 +70,9 @@ random.seed(seed_value)
 
 import lightgbm as lgb
 
-numberSelected=1000
-numberTrain=750
-numberTest=250
-numberFeatureSelect=4
+numberSelected=10
+numberTrain=8
+numberTest=2
 
 # numberSelected=1000001
 # numberTrain=750000
@@ -89,19 +84,27 @@ f1=open(fpStat,'r')
 arrLines=f1.read().split('\n')
 f1.close()
 lstHeaderCols=[]
+lstHeaderIndexes=[]
+lstFullHeaderCols=[]
 for i in range(1,len(arrLines)-1):
     colName=arrLines[i].split('\t')[0]
-    lstHeaderCols.append(colName)
+    realIndex=i-1
+    lstFullHeaderCols.append(colName)
+    if realIndex in lstSubsetFeaturesPositive:
+        lstHeaderCols.append(colName)
+        lstHeaderIndexes.append(realIndex)
 
 dictEdges={}
-for i in range(0,len(lstHeaderCols)-2):
+for i in range(0,len(lstHeaderCols)-1):
     colCurrent=lstHeaderCols[i]
     colNext=lstHeaderCols[i+1]
-    nameEdge='{}_AA_{}'.format(colCurrent,colNext)
+    nameEdge='{}_AB_{}'.format(colCurrent,colNext)
     dictEdges[nameEdge]=(colCurrent,nameEdge,colNext)
+    # nameEdgeReverse = '{}_BA_{}'.format(colNext,colCurrent)
+    # dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
 
-lstYamlTrain=['dataset_name: {}\nedge_data:\n'.format('./csvGraph4IO_train')]
-lstYamlTest=['dataset_name: {}\nedge_data:\n'.format('./csvGraph4IO_test')]
+lstYamlTrain=['dataset_name: {}\nedge_data:'.format('./csvGraph4IO_train')]
+lstYamlTest=['dataset_name: {}\nedge_data:'.format('./csvGraph4IO_test')]
 
 idxEdges=-1
 dictIndexEdges={}
@@ -123,7 +126,7 @@ for key in dictEdges.keys():
 lstYamlTrain.append('node_data:')
 lstYamlTest.append('node_data:')
 
-for i in range(0,len(lstHeaderCols)-1):
+for i in range(0,len(lstHeaderCols)):
     f1=open(fopCsvGNNTrain+'nodes_{}.csv'.format(i),'w')
     f1.write('graph_id,node_id,feat\n')
     f1.close()
@@ -194,18 +197,39 @@ with open(file_tot_performace_tagged) as infile:
                 labelItem=lstItemValues[len(lstItemValues)-1]
 
                 lstStrGraphInfo.append('{},{}'.format(idxGraph,labelItem))
-                for idxFeat in range(0,len(lstItemValues)-1):
-                    typeName=lstHeaderCols[idxFeat]
-                    strVectorInfo = '{},{}'.format(lstItemValues[idxFeat],
-                                                   ','.join(['{}'.format(lstItemValues[idxFeat]) for it in range(0, 9)]))
-                    # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
-                    strAddNode='{},{},"{}"'.format(idxGraph,0,strVectorInfo)
-                    dictStrNodes[idxFeat].append(strAddNode)
+                idxNode=-1
+                for idxFeat in range(0,len(lstHeaderIndexes)):
+                    idxNode+=1
+
+                    typeName=lstFullHeaderCols[lstHeaderIndexes[idxFeat]]
+                    for idxFeat2 in range(0, len(lstHeaderIndexes)):
+                        if idxFeat == idxFeat2:
+                            strVectorInfo = '{},{}'.format(lstItemValues[lstHeaderIndexes[idxFeat]],
+                                                           ','.join(
+                                                               ['{}'.format(random.random())
+                                                                for it in
+                                                                range(0, 9)]))
+                            # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
+                            strAddNode = '{},{},"{}"'.format(idxGraph, idxNode, strVectorInfo)
+                            dictStrNodes[idxFeat].append(strAddNode)
+                        else:
+                            strVectorInfo = '{}'.format(','.join(
+                                                               ['0.0'.format(lstItemValues[lstHeaderIndexes[idxFeat]])
+                                                                for it in
+                                                                range(0, 10)]))
+                            # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
+                            strAddNode = '{},{},"{}"'.format(idxGraph, idxFeat2, strVectorInfo)
+                            dictStrNodes[idxFeat].append(strAddNode)
                     if idxFeat>0:
-                        prevTypeName=lstHeaderCols[idxFeat-1]
-                        strKeyEdge='{}_AA_{}'.format(prevTypeName,typeName)
+                        prevTypeName=lstFullHeaderCols[lstHeaderIndexes[idxFeat-1]]
+                        strKeyEdge='{}_AB_{}'.format(prevTypeName,typeName)
                         idxEdge=dictIndexEdges[strKeyEdge]
-                        dictStrEdges[idxEdge].append('{},{},{}'.format(idxGraph,0,0))
+                        prevNode = idxNode - 1
+                        currentNode=idxNode
+                        dictStrEdges[idxEdge].append('{},{},{}'.format(idxGraph,prevNode,currentNode))
+                        # strKeyEdgeReverse = '{}_BA_{}'.format( typeName,prevTypeName)
+                        # idxEdgeReverse = dictIndexEdges[strKeyEdgeReverse]
+                        # dictStrEdges[idxEdgeReverse].append('{},{},{}'.format(idxGraph, currentNode, prevNode))
                 if idxLine==numberTrain:
                     isNeedToWrite=True
                 pass
@@ -217,18 +241,38 @@ with open(file_tot_performace_tagged) as infile:
                 labelItem = lstItemValues[len(lstItemValues) - 1]
                 selectedFolder = fopCsvGNNTest
                 lstStrGraphInfo.append('{},{}'.format(idxGraph, labelItem))
-                for idxFeat in range(0, len(lstItemValues)-1):
-                    typeName = lstHeaderCols[idxFeat]
-                    strVectorInfo = '{},{}'.format(lstItemValues[idxFeat],
-                                                   ','.join(['{}'.format(lstItemValues[idxFeat]) for it in range(0, 9)]))
-                    # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
-                    strAddNode = '{},{},"{}"'.format(idxGraph, 0, strVectorInfo)
-                    dictStrNodes[idxFeat].append(strAddNode)
+                idxNode=-1
+                for idxFeat in range(0, len(lstHeaderIndexes)):
+                    idxNode+=1
+                    typeName = lstFullHeaderCols[lstHeaderIndexes[idxFeat]]
+                    for idxFeat2 in range(0,len(lstHeaderIndexes)):
+                        if idxFeat==idxFeat2:
+                            strVectorInfo = '{},{}'.format(lstItemValues[lstHeaderIndexes[idxFeat]],
+                                                           ','.join(
+                                                               ['{}'.format(random.random()) for it in
+                                                                range(0, 9)]))
+                            # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
+                            strAddNode = '{},{},"{}"'.format(idxGraph, idxNode, strVectorInfo)
+                            dictStrNodes[idxFeat].append(strAddNode)
+                        else:
+                            strVectorInfo = '{}'.format(','.join(
+                                ['0.0'.format(lstItemValues[lstHeaderIndexes[idxFeat]])
+                                 for it in
+                                 range(0, 10)]))
+                            # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
+                            strAddNode = '{},{},"{}"'.format(idxGraph, idxFeat2, strVectorInfo)
+                            dictStrNodes[idxFeat].append(strAddNode)
+
                     if idxFeat > 0:
-                        prevTypeName = lstHeaderCols[idxFeat - 1]
-                        strKeyEdge = '{}_AA_{}'.format(prevTypeName, typeName)
+                        prevTypeName=lstFullHeaderCols[lstHeaderIndexes[idxFeat-1]]
+                        strKeyEdge = '{}_AB_{}'.format(prevTypeName, typeName)
                         idxEdge = dictIndexEdges[strKeyEdge]
-                        dictStrEdges[idxEdge].append('{},{},{}'.format(idxGraph, 0, 0))
+                        prevNode = idxNode - 1
+                        currentNode = idxNode
+                        dictStrEdges[idxEdge].append('{},{},{}'.format(idxGraph, prevNode, currentNode))
+                        # strKeyEdgeReverse = '{}_BA_{}'.format( typeName,prevTypeName)
+                        # idxEdgeReverse = dictIndexEdges[strKeyEdgeReverse]
+                        # dictStrEdges[idxEdgeReverse].append('{},{},{}'.format(idxGraph, currentNode, prevNode))
                 pass
 
 
@@ -237,7 +281,7 @@ with open(file_tot_performace_tagged) as infile:
         # if idxLine<=100:
         #     print(line.replace(',','\t'))
             # input('bbb')
-        if idxLine % cacheSize == 0 or (idxLine+1) == numberSelected or isNeedToWrite:
+        if idxLine % cacheSize == 0 or idxLine >= numberSelected or isNeedToWrite:
             print('{}\t{}'.format(idxLine,line))
             f1 = open(fpPreprocessFile, 'a')
             f1.write('\n'.join(lstOutputs) + '\n')
@@ -249,7 +293,7 @@ with open(file_tot_performace_tagged) as infile:
             f1.close()
             lstStrGraphInfo=[]
 
-            for idxFeat in range(0, len(lstHeaderCols)-1):
+            for idxFeat in range(0, len(lstHeaderCols)):
                 f1=open(selectedFolder+'nodes_{}.csv'.format(idxFeat),'a')
                 f1.write('\n'.join(dictStrNodes[idxFeat])+'\n')
                 f1.close()
@@ -266,7 +310,7 @@ with open(file_tot_performace_tagged) as infile:
 
 
 
-        if idxLine==numberSelected:
+        if idxLine>=numberSelected:
             break
         # print(line)
 if len(lstOutputs)>0:
