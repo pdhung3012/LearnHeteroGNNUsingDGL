@@ -70,9 +70,9 @@ random.seed(seed_value)
 
 import lightgbm as lgb
 
-numberSelected=10
-numberTrain=8
-numberTest=2
+numberSelected=1000
+numberTrain=800
+numberTest=200
 
 # numberSelected=1000001
 # numberTrain=750000
@@ -87,7 +87,8 @@ lstHeaderCols=[]
 lstHeaderIndexes=[]
 lstFullHeaderCols=[]
 for i in range(1,len(arrLines)-1):
-    colName=arrLines[i].split('\t')[0]
+    # colName=arrLines[i].split('\t')[0]
+    colName = 'col{}'.format(i)
     realIndex=i-1
     lstFullHeaderCols.append(colName)
     if realIndex in lstSubsetFeaturesPositive:
@@ -96,9 +97,12 @@ for i in range(1,len(arrLines)-1):
 
 dictEdges={}
 for i in range(0,len(lstHeaderCols)-1):
-    colCurrent=lstHeaderCols[i]
-    colNext=lstHeaderCols[i+1]
-    nameEdge='{}_AB_{}'.format(colCurrent,colNext)
+    # colCurrent=lstHeaderCols[i]
+    # colNext=lstHeaderCols[i+1]
+    # nameEdge='{}_AB_{}'.format(colCurrent,colNext)
+    colCurrent = lstHeaderCols[i]
+    colNext = lstHeaderCols[i+1]
+    nameEdge = 'edge-{}-{}'.format(colCurrent, colNext)
     dictEdges[nameEdge]=(colCurrent,nameEdge,colNext)
     # nameEdgeReverse = '{}_BA_{}'.format(colNext,colCurrent)
     # dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
@@ -123,6 +127,8 @@ for key in dictEdges.keys():
     lstYamlTrain.append(strEdge)
     lstYamlTest.append(strEdge)
 
+print(dictIndexEdges)
+# input('bbb')
 lstYamlTrain.append('node_data:')
 lstYamlTest.append('node_data:')
 
@@ -194,7 +200,7 @@ with open(file_tot_performace_tagged) as infile:
             elif idxLine<=numberTrain:
                 idxGraph=idxLine-1
                 lstItemValues=[float(it) for it in line.split(',')]
-                labelItem=lstItemValues[len(lstItemValues)-1]
+                labelItem=int(lstItemValues[len(lstItemValues)-1])
 
                 lstStrGraphInfo.append('{},{}'.format(idxGraph,labelItem))
                 idxNode=-1
@@ -204,11 +210,12 @@ with open(file_tot_performace_tagged) as infile:
                     typeName=lstFullHeaderCols[lstHeaderIndexes[idxFeat]]
                     for idxFeat2 in range(0, len(lstHeaderIndexes)):
                         if idxFeat == idxFeat2:
+                            lstItemValues[lstHeaderIndexes[idxFeat]] = 0.1
                             strVectorInfo = '{},{}'.format(lstItemValues[lstHeaderIndexes[idxFeat]],
                                                            ','.join(
                                                                ['{}'.format(random.random())
                                                                 for it in
-                                                                range(0, 9)]))
+                                                                range(0, 119)]))
                             # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
                             strAddNode = '{},{},"{}"'.format(idxGraph, idxNode, strVectorInfo)
                             dictStrNodes[idxFeat].append(strAddNode)
@@ -216,13 +223,13 @@ with open(file_tot_performace_tagged) as infile:
                             strVectorInfo = '{}'.format(','.join(
                                                                ['0.0'.format(lstItemValues[lstHeaderIndexes[idxFeat]])
                                                                 for it in
-                                                                range(0, 10)]))
+                                                                range(0, 120)]))
                             # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
                             strAddNode = '{},{},"{}"'.format(idxGraph, idxFeat2, strVectorInfo)
                             dictStrNodes[idxFeat].append(strAddNode)
                     if idxFeat>0:
                         prevTypeName=lstFullHeaderCols[lstHeaderIndexes[idxFeat-1]]
-                        strKeyEdge='{}_AB_{}'.format(prevTypeName,typeName)
+                        strKeyEdge = 'edge-{}-{}'.format(prevTypeName, typeName)
                         idxEdge=dictIndexEdges[strKeyEdge]
                         prevNode = idxNode - 1
                         currentNode=idxNode
@@ -247,10 +254,11 @@ with open(file_tot_performace_tagged) as infile:
                     typeName = lstFullHeaderCols[lstHeaderIndexes[idxFeat]]
                     for idxFeat2 in range(0,len(lstHeaderIndexes)):
                         if idxFeat==idxFeat2:
+                            lstItemValues[lstHeaderIndexes[idxFeat]]=0.1
                             strVectorInfo = '{},{}'.format(lstItemValues[lstHeaderIndexes[idxFeat]],
                                                            ','.join(
                                                                ['{}'.format(random.random()) for it in
-                                                                range(0, 9)]))
+                                                                range(0, 119)]))
                             # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
                             strAddNode = '{},{},"{}"'.format(idxGraph, idxNode, strVectorInfo)
                             dictStrNodes[idxFeat].append(strAddNode)
@@ -258,14 +266,14 @@ with open(file_tot_performace_tagged) as infile:
                             strVectorInfo = '{}'.format(','.join(
                                 ['0.0'.format(lstItemValues[lstHeaderIndexes[idxFeat]])
                                  for it in
-                                 range(0, 10)]))
+                                 range(0, 120)]))
                             # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
                             strAddNode = '{},{},"{}"'.format(idxGraph, idxFeat2, strVectorInfo)
                             dictStrNodes[idxFeat].append(strAddNode)
 
                     if idxFeat > 0:
                         prevTypeName=lstFullHeaderCols[lstHeaderIndexes[idxFeat-1]]
-                        strKeyEdge = '{}_AB_{}'.format(prevTypeName, typeName)
+                        strKeyEdge = 'edge-{}-{}'.format(prevTypeName, typeName)
                         idxEdge = dictIndexEdges[strKeyEdge]
                         prevNode = idxNode - 1
                         currentNode = idxNode

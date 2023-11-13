@@ -18,8 +18,8 @@ dataset_pg_train = dgl.data.CSVDataset('./csvGraph4IO_train/',force_reload=True)
 dataset_pg_test = dgl.data.CSVDataset('./csvGraph4IO_test/',force_reload=True)
 # dataset_ll = torch.load('./graph_list_benchmark_test_all_pg_plus_rodinia.pt')
 #
-test_idx = list(range(0,5))
-train_idx = list(range(0,3))
+test_idx = list(range(0,100))
+train_idx = list(range(0,700))
 # ind_count = 0
 #
 # for data_ll in dataset_ll:
@@ -79,24 +79,33 @@ class HeteroRegressor(nn.Module):
 
     def forward(self, g):
         h = g.ndata['feat']
-        h = self.rgcn(g, h)
-        # print(h)
+        print('h feat {}'.format(h.keys()))
+        h2 = self.rgcn(g, h)
+        print('damn h for g {} \n ge herre {}'.format(g, h.keys()))
+        # input('bbb')
+        # if len(list(h2.keys()))>0:
+        #     h=h2
         with g.local_scope():
             # print('go inside')
             # try:
             g.ndata['h'] = h
+            print('g.ndata[h] {}'.format(g.ndata['h']))
             hg = 0
-            print(g.ntypes)
+            # print('damn {}'.format(g.ndata['h']))
             for ntype in g.ntypes:
                 print('info ntypes {}'.format(ntype))
                 hg = hg + dgl.mean_nodes(g, 'h', ntype=ntype)
-
+                print('end info ntypes {} {}'.format(ntype,hg.shape))
+            # print('type hg {} {} {}'.format(type(hg), hg.shape, hg))
+            # input('aaaa')
             # except Exception as e:
             #     traceback.print_exc()
                 # return torch.Tensor(0.0)
 
                 # pass
-        return self.regressor(hg)
+        retValue=self.regressor(hg)
+        print('end info ntypes {}'.format(ntype))
+        return retValue
 
 whole_exp = 0
 
@@ -135,7 +144,8 @@ lstHeaderCols=[]
 lstHeaderIndexes=[]
 lstFullHeaderCols=[]
 for i in range(1,len(arrLines)-1):
-    colName=arrLines[i].split('\t')[0]
+    # colName=arrLines[i].split('\t')[0]
+    colName = 'col{}'.format(i)
     realIndex=i-1
     lstFullHeaderCols.append(colName)
     if realIndex in lstSubsetFeaturesPositive:
@@ -144,22 +154,28 @@ for i in range(1,len(arrLines)-1):
 
 dictEdges={}
 for i in range(0,len(lstHeaderCols)-1):
-    colCurrent=lstHeaderCols[i]
-    colNext=lstHeaderCols[i+1]
-    nameEdge='{}_AB_{}'.format(colCurrent,colNext)
+    # colCurrent=lstHeaderCols[i]
+    # colNext=lstHeaderCols[i+1]
+    # nameEdge='{}_AB_{}'.format(colCurrent,colNext)
+    colCurrent = lstHeaderCols[i]
+    colNext = lstHeaderCols[i+1]
+    nameEdge = 'edge-{}-{}'.format(colCurrent, colNext)
     dictEdges[nameEdge]=(colCurrent,nameEdge,colNext)
     # nameEdgeReverse = '{}_BA_{}'.format(colNext,colCurrent)
     # dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
+
 etypes=list(dictEdges.values())
 print(etypes)
 # etypes = [('control', 'control', 'control'), ('control', 'call', 'control'), ('control', 'data', 'variable'), ('variable', 'data', 'control')]
 # class_names = ['Private Clause', 'Reduction Clause']
+train_sampler = SubsetRandomSampler(train_idx)
+dataset_test = Subset(dataset_pg_test, test_idx)
 
-train_dataloader_pg = GraphDataLoader(dataset_pg_train, shuffle=False, batch_size=5, sampler=train_sampler)
-test_dataloader_pg = GraphDataLoader(dataset_pg_test, shuffle=False, batch_size=5)
+train_dataloader_pg = GraphDataLoader(dataset_pg_train, shuffle=False, batch_size=100, sampler=train_sampler)
+test_dataloader_pg = GraphDataLoader(dataset_test, shuffle=False, batch_size=100)
 
 
-model_pg = HeteroRegressor(10, 8, 1, etypes)
+model_pg = HeteroRegressor(120, 64, 1, etypes)
 
 # model_pg = torch.load('./model-rodinia-best.pt')
 # opt = torch.optim.Adam(model_pg.parameters(), lr=0.01)

@@ -12,12 +12,12 @@ from torch.utils.data import Subset
 import tensorflow as tf
 from sklearn.metrics import *
 
-dataset_pg = dgl.data.CSVDataset('./csvFiles',force_reload=True)
+dataset_pg = dgl.data.CSVDataset('./csvGraph4IO_train/',force_reload=True)
 # dataset_pg = dgl.data.CSVDataset('./csvGraph4IO/train/')
 # dataset_ll = torch.load('./graph_list_benchmark_test_all_pg_plus_rodinia.pt')
 
-test_idx = list(range(0,30))
-train_idx = list(range(0,300))
+test_idx = list(range(0,4))
+train_idx = list(range(0,4))
 ind_count = 0
 
 # for data_ll in dataset_ll:
@@ -78,20 +78,20 @@ class HeteroRegressor(nn.Module):
 
     def forward(self, g):
         h = g.ndata['feat']
-        print('h feat {}'.format(h.keys()))
+        # print('h feat {}'.format(h))
         h = self.rgcn(g, h)
-        print('damn h for g {} \n ge herre {}'.format(g, h.keys()))
+        # print('damn h for g {} \n ge herre {}'.format(g, h))
         # print('h shape {}'.format(h))
         # input('bbbb')
+        # if len(list(h2.keys()))>0:
+        #     h=h2
         with g.local_scope():
             g.ndata['h'] = h
-            print('g.ndata[h] {}'.format(g.ndata['h']))
             hg = 0
 
             for ntype in g.ntypes:
-                print('ntyoe {}'.format(ntype))
+                # print('ntyoe {}'.format(ntype))
                 hg = hg + dgl.mean_nodes(g, 'h', ntype=ntype)
-                print('end info ntypes {} {}'.format(ntype, hg.shape))
                 # pass
             # print('type hg {} {} {}'.format(type(hg),hg.shape,hg))
             # input('aaaa')
@@ -112,11 +112,44 @@ print('train_idx {}\ntest_idx {}'.format(train_idx,test_idx))
 train_sampler = SubsetRandomSampler(train_idx)
 dataset_test = Subset(dataset_pg, test_idx)
 
+
 etypes = [('control', 'control', 'control'), ('control', 'call', 'control'), ('control', 'data', 'variable'), ('variable', 'data', 'control')]
 # , ('variable', 'data', 'control')
 # class_names = ['Private Clause', 'Reduction Clause']
+fopResult='/home/hungphd/media/aiio/results/lightGBM_subset/'
+lstSubsetFeaturesPositive=[9,12,13]
+fpStat=fopResult+'stat.txt'
+f1=open(fpStat,'r')
+arrLines=f1.read().split('\n')
+f1.close()
+lstHeaderCols=[]
+lstHeaderIndexes=[]
+lstFullHeaderCols=[]
+for i in range(1,len(arrLines)-1):
+    # colName=arrLines[i].split('\t')[0]
+    colName = 'col{}'.format(i)
+    realIndex=i-1
+    lstFullHeaderCols.append(colName)
+    if realIndex in lstSubsetFeaturesPositive:
+        lstHeaderCols.append(colName)
+        lstHeaderIndexes.append(realIndex)
 
-train_dataloader_pg = GraphDataLoader(dataset_pg, shuffle=False, batch_size=100, sampler=train_sampler)
+dictEdges={}
+for i in range(0,len(lstHeaderCols)-1):
+    # colCurrent=lstHeaderCols[i]
+    # colNext=lstHeaderCols[i+1]
+    # nameEdge='{}_AB_{}'.format(colCurrent,colNext)
+    colCurrent = lstHeaderCols[i]
+    colNext = lstHeaderCols[i+1]
+    nameEdge = 'edge-{}-{}'.format(colCurrent, colNext)
+    dictEdges[nameEdge]=(colCurrent,nameEdge,colNext)
+    # nameEdgeReverse = '{}_BA_{}'.format(colNext,colCurrent)
+    # dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
+
+etypes=list(dictEdges.values())
+
+
+train_dataloader_pg = GraphDataLoader(dataset_pg, shuffle=False, batch_size=100)
 test_dataloader_pg = GraphDataLoader(dataset_test, batch_size=100)
 
 
@@ -146,6 +179,7 @@ for epoch in range(20):
     for batched_graph, labels in train_dataloader_pg:
         # feats = batched_graph.ndata['attr']
         # print(feats)
+
 
         logits = model_pg(batched_graph)
         # print(logits)
