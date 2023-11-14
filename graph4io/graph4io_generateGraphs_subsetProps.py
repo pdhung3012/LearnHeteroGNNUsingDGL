@@ -102,10 +102,10 @@ for i in range(0,len(lstHeaderCols)-1):
     # nameEdge='{}_AB_{}'.format(colCurrent,colNext)
     colCurrent = lstHeaderCols[i]
     colNext = lstHeaderCols[i+1]
-    nameEdge = 'edge-{}-{}'.format(colCurrent, colNext)
+    nameEdge = 'edge-{}-{}'.format(colCurrent, colNext).replace('-col','')
     dictEdges[nameEdge]=(colCurrent,nameEdge,colNext)
-    # nameEdgeReverse = '{}_BA_{}'.format(colNext,colCurrent)
-    # dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
+    nameEdgeReverse = 'edge-{}-{}'.format(colNext,colCurrent).replace('-col','')
+    dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
 
 lstYamlTrain=['dataset_name: {}\nedge_data:'.format('./csvGraph4IO_train')]
 lstYamlTest=['dataset_name: {}\nedge_data:'.format('./csvGraph4IO_test')]
@@ -229,14 +229,14 @@ with open(file_tot_performace_tagged) as infile:
                             dictStrNodes[idxFeat].append(strAddNode)
                     if idxFeat>0:
                         prevTypeName=lstFullHeaderCols[lstHeaderIndexes[idxFeat-1]]
-                        strKeyEdge = 'edge-{}-{}'.format(prevTypeName, typeName)
+                        strKeyEdge = 'edge-{}-{}'.format(prevTypeName, typeName).replace('-col','')
                         idxEdge=dictIndexEdges[strKeyEdge]
                         prevNode = idxNode - 1
                         currentNode=idxNode
                         dictStrEdges[idxEdge].append('{},{},{}'.format(idxGraph,prevNode,currentNode))
-                        # strKeyEdgeReverse = '{}_BA_{}'.format( typeName,prevTypeName)
-                        # idxEdgeReverse = dictIndexEdges[strKeyEdgeReverse]
-                        # dictStrEdges[idxEdgeReverse].append('{},{},{}'.format(idxGraph, currentNode, prevNode))
+                        strKeyEdgeReverse = 'edge-{}-{}'.format(typeName,prevTypeName).replace('-col','')
+                        idxEdgeReverse = dictIndexEdges[strKeyEdgeReverse]
+                        dictStrEdges[idxEdgeReverse].append('{},{},{}'.format(idxGraph, currentNode, prevNode))
                 if idxLine==numberTrain:
                     isNeedToWrite=True
                 pass
@@ -273,14 +273,14 @@ with open(file_tot_performace_tagged) as infile:
 
                     if idxFeat > 0:
                         prevTypeName=lstFullHeaderCols[lstHeaderIndexes[idxFeat-1]]
-                        strKeyEdge = 'edge-{}-{}'.format(prevTypeName, typeName)
+                        strKeyEdge = 'edge-{}-{}'.format(prevTypeName, typeName).replace('-col','')
                         idxEdge = dictIndexEdges[strKeyEdge]
                         prevNode = idxNode - 1
                         currentNode = idxNode
                         dictStrEdges[idxEdge].append('{},{},{}'.format(idxGraph, prevNode, currentNode))
-                        # strKeyEdgeReverse = '{}_BA_{}'.format( typeName,prevTypeName)
-                        # idxEdgeReverse = dictIndexEdges[strKeyEdgeReverse]
-                        # dictStrEdges[idxEdgeReverse].append('{},{},{}'.format(idxGraph, currentNode, prevNode))
+                        strKeyEdgeReverse =  'edge-{}-{}'.format(typeName,prevTypeName ).replace('-col','')
+                        idxEdgeReverse = dictIndexEdges[strKeyEdgeReverse]
+                        dictStrEdges[idxEdgeReverse].append('{},{},{}'.format(idxGraph, currentNode, prevNode))
                 pass
 
 

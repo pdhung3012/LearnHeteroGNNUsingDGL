@@ -55,17 +55,25 @@ class RGCN(nn.Module):
 
     def forward(self, graph, inputs):
         # inputs is features of nodes
+        # print('graph {}\nimputs {}'.format(graph, inputs))
         h = self.conv1(graph, inputs)
+        print(' 1 h shape {}'.format(h.keys()))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv2(graph, h)
+        print(' 2 h shape {}'.format(h.keys()))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv3(graph, h)
+        # print(' 3 h shape {}'.format(h))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv4(graph, h)
+        # print(' 4 h shape {}'.format(h))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv5(graph, h)
+        # print(' 5 h shape {}'.format(h))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv6(graph, h)
+        print(' 6 h shape {}'.format(h.keys()))
+        input('aaaa')
         return h
 
 

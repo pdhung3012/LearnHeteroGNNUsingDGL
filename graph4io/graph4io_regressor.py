@@ -38,12 +38,15 @@ class RGCN(nn.Module):
         self.conv1 = dglnn.HeteroGraphConv({
             rel: dglnn.GraphConv(in_feats, hid_feats)
             for rel in rel_names}, aggregate='sum')
+        print('rels 1 {}'.format(rel_names))
         self.conv2 = dglnn.HeteroGraphConv({
             rel: dglnn.GraphConv(hid_feats, hid_feats)
             for rel in rel_names}, aggregate='sum')
+        print('rels 2 {}'.format(rel_names))
         self.conv3 = dglnn.HeteroGraphConv({
             rel: dglnn.GraphConv(hid_feats, hid_feats)
             for rel in rel_names}, aggregate='sum')
+        print('rels 3 {}'.format(rel_names))
         self.conv4 = dglnn.HeteroGraphConv({
             rel: dglnn.GraphConv(hid_feats, hid_feats)
             for rel in rel_names}, aggregate='sum')
@@ -56,17 +59,27 @@ class RGCN(nn.Module):
 
     def forward(self, graph, inputs):
         # inputs is features of nodes
+        # print('graph {}\nimputs {}'.format(graph,inputs))
+        # print(' 1 h shape {}'.format(inputs.keys()))
         h = self.conv1(graph, inputs)
+        # print(' 1 h shape {}'.format(h.keys()))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv2(graph, h)
+        # print(' 2 h shape {}'.format(h.keys()))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv3(graph, h)
+        # print(' 3 h shape {}'.format(h))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv4(graph, h)
+        # print(' 4 h shape {}'.format(h))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv5(graph, h)
+        # print(' 5 h shape {}'.format(h))
         h = {k: F.relu(v) for k, v in h.items()}
         h = self.conv6(graph, h)
+        # print(' 6 h shape {}'.format(h.keys()))
+        # print(' 6 h shape {}'.format(h['col10'].shape))
+        # input('bbb ')
         return h
 
 
@@ -79,9 +92,9 @@ class HeteroRegressor(nn.Module):
 
     def forward(self, g):
         h = g.ndata['feat']
-        print('h feat {}'.format(h.keys()))
-        h2 = self.rgcn(g, h)
-        print('damn h for g {} \n ge herre {}'.format(g, h.keys()))
+        # print('h feat {}'.format(h.keys()))
+        h = self.rgcn(g, h)
+        # print('damn h for g {} \n ge herre {}'.format(g, h.keys()))
         # input('bbb')
         # if len(list(h2.keys()))>0:
         #     h=h2
@@ -89,13 +102,13 @@ class HeteroRegressor(nn.Module):
             # print('go inside')
             # try:
             g.ndata['h'] = h
-            print('g.ndata[h] {}'.format(g.ndata['h']))
+            # print('g.ndata[h] {}'.format(g.ndata['h']))
             hg = 0
             # print('damn {}'.format(g.ndata['h']))
             for ntype in g.ntypes:
-                print('info ntypes {}'.format(ntype))
+                # print('info ntypes {}'.format(ntype))
                 hg = hg + dgl.mean_nodes(g, 'h', ntype=ntype)
-                print('end info ntypes {} {}'.format(ntype,hg.shape))
+                # print('end info ntypes {} {}'.format(ntype,hg.shape))
             # print('type hg {} {} {}'.format(type(hg), hg.shape, hg))
             # input('aaaa')
             # except Exception as e:
@@ -104,7 +117,7 @@ class HeteroRegressor(nn.Module):
 
                 # pass
         retValue=self.regressor(hg)
-        print('end info ntypes {}'.format(ntype))
+        # print('end info ntypes {}'.format(ntype))
         return retValue
 
 whole_exp = 0
@@ -159,10 +172,10 @@ for i in range(0,len(lstHeaderCols)-1):
     # nameEdge='{}_AB_{}'.format(colCurrent,colNext)
     colCurrent = lstHeaderCols[i]
     colNext = lstHeaderCols[i+1]
-    nameEdge = 'edge-{}-{}'.format(colCurrent, colNext)
+    nameEdge = 'edge-{}-{}'.format(colCurrent, colNext).replace('-col','')
     dictEdges[nameEdge]=(colCurrent,nameEdge,colNext)
-    # nameEdgeReverse = '{}_BA_{}'.format(colNext,colCurrent)
-    # dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
+    nameEdgeReverse = 'edge-{}-{}'.format(colNext,colCurrent).replace('-col','')
+    dictEdges[nameEdgeReverse] = (colNext, nameEdgeReverse, colCurrent)
 
 etypes=list(dictEdges.values())
 print(etypes)
@@ -193,7 +206,8 @@ opt = torch.optim.Adam(model_pg.parameters())
 # cross_entropy_loss = nn.CrossEntropyLoss()
 best_loss=10000
 fpBestModel='./best_model.pt'
-for epoch in range(20):
+numEpochs=2000
+for epoch in range(numEpochs):
     # lstPredicts=[]
     # lstLabels=[]
     tsPredicts = None
