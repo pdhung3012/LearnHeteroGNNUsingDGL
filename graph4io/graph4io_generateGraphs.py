@@ -5,36 +5,21 @@
 import traceback
 
 from utils import *
-from UtilGetFeaturesInfos import *
 import time
 
+file_tot_performace_tagged = "/home/hungphd/git/data_aiio/sample_train.csv"
+fopResult = '/home/hungphd/git/data_aiio/results/lightgbm/'
+from utils import *
 
+createDirIfNotExist(fopResult)
 
-file_tot_performace_tagged="/home/hungphd/media/aiio/data/sample_train.csv"
-fpPreprocessFile="/home/hungphd/media/aiio/data/sample_train_small.csv"
+time_str = time.strftime("%Y%m%d-%H%M%S")
 
-# lstSubsetFeaturesPositive=[37,40,29,33,38,30,34,28,31,35]
-# lstSubsetFeaturesPositive=[37,40,29,33,38]
-# lstSubsetFeaturesPositive=[25,24,14,16,8,19,21,20,43,44]
-# lstSubsetFeaturesPositive=[25,24,14,16,8]
-# lstSubsetFeaturesPositive=[37,40,29,33,38,30,34,28,31,35,25,24,14,16,8,19,21,20,43,44]
-lstSubsetFeaturesPositive=list(range(0,45))
-# lstSubsetFeaturesPositive.remove(0)
-lstSubsetFeaturesPositive.remove(2)
-lstSubsetFeaturesPositive.remove(3)
-lstSubsetFeaturesPositive.remove(4)
-lstSubsetFeaturesPositive.remove(5)
-# lstSubsetFeaturesPositive.remove(22)
-# lstSubsetFeaturesPositive.remove(6)
-# lstSubsetFeaturesPositive.remove(18)
+plot_result_file_name = fopResult + "io-ai-model-lightgbm-sparse-learning-curve-" + time_str + ".pdf"
+model_save_file_name = fopResult + "io-ai-model-lightgbm-sparse-" + time_str + ".joblib"
 
-time_str=time.strftime("%Y%m%d-%H%M%S")
-fopResult='/home/hungphd/media/aiio/results/lightGBM_subset/'
-fopCsvGNNTrain='./csvGraph4IO_train/'
-fopCsvGNNTest='./csvGraph4IO_test/'
-createDirIfNotExist(fopCsvGNNTrain)
-createDirIfNotExist(fopCsvGNNTest)
-
+print("plot_result_file_name =", plot_result_file_name)
+print("model_save_file_name=", model_save_file_name)
 
 from numpy import loadtxt
 from matplotlib import pyplot
@@ -51,6 +36,7 @@ from sklearn.compose import TransformedTargetRegressor
 from numpy import absolute
 from numpy import mean
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import FunctionTransformer
 import numpy as np
 from sklearn.model_selection import cross_val_score
@@ -61,216 +47,202 @@ from numpy import average
 import joblib
 import time
 import scipy.sparse
-from sklearn.metrics import *
-from scipy.stats import *
-## Set random seed
-seed_value=48
 
+## Set random seed
+seed_value = 48
 import os
 import random
-os.environ['PYTHONHASHSEED']=str(seed_value)
+
+os.environ['PYTHONHASHSEED'] = str(seed_value)
 np.random.seed(seed_value)
 random.seed(seed_value)
 
 import lightgbm as lgb
 
-numberSelected=1000
-numberTrain=750
-numberTest=250
-numberFeatureSelect=4
+# load the train dataset
+dataset = loadtxt(file_tot_performace_tagged, delimiter=',', skiprows=1)
+# split into input (X) and output (y) variables
+print(dataset.shape)
+n_dims = dataset.shape[1]
+X = dataset[:, 0:n_dims - 1]
+
+print("Before sparse.csr_matrix = ", type(X))
+X = scipy.sparse.csr_matrix(X)
+print("After  sparse.csr_matrix = ", type(X))
+
+Y = dataset[:, n_dims - 1]
+print("max(Y) =", max(Y), ", min(Y) =", min(Y))
+
+input_dim_size = n_dims - 1
+print("input_dim_size = ", input_dim_size)
+
+X_train, X_test, y_train, y_test = train_test_split(X, Y, random_state=1,shuffle=False)
+print("X_train.type=", type(X_train))
+print("X_train.shape=", X_train.shape)
+list_x_train=X_train.toarray().tolist()
+list_x_test=X_test.toarray().tolist()
+list_y_train=y_train.tolist()
+list_y_test=y_test.tolist()
+lenTrain=len(list_x_train)
+lenTest=len(list_x_test)
+percentage=100
+list_x_train=list_x_train[:lenTrain//percentage]
+list_x_test=list_x_test[:lenTest//percentage]
+list_y_train=list_y_train[:lenTrain//percentage]
+list_y_test=list_y_test[:lenTest//percentage]
+lenTrain=len(list_x_train)
+lenTest=len(list_x_test)
+
+# print('len {}'.format(len(list_x_train)))
+print('reduce len {} {} {}'.format(lenTrain,lenTest,(lenTrain+lenTest)))
+# input('aaa')
 
 # numberSelected=1000001
 # numberTrain=750000
 # numberTest=250000
 cacheSize=2000
 
-fpStat=fopResult+'stat.txt'
-f1=open(fpStat,'r')
-arrLines=f1.read().split('\n')
-f1.close()
-lstHeaderCols=[]
-for i in range(1,len(arrLines)-1):
-    colName=arrLines[i].split('\t')[0]
-    lstHeaderCols.append(colName)
+fopCsvGNNTrain='./csvGraph4IO/'
+# fopCsvGNNTest='./csvGraph4IO/test/'
+createDirIfNotExist(fopCsvGNNTrain)
+# createDirIfNotExist(fopCsvGNNTest)
 
-dictEdges={}
-for i in range(0,len(lstHeaderCols)-2):
-    colCurrent=lstHeaderCols[i]
-    colNext=lstHeaderCols[i+1]
-    nameEdge='{}_AA_{}'.format(colCurrent,colNext)
-    dictEdges[nameEdge]=(colCurrent,nameEdge,colNext)
-
-lstYamlTrain=['dataset_name: {}\nedge_data:\n'.format('./csvGraph4IO_train')]
-lstYamlTest=['dataset_name: {}\nedge_data:\n'.format('./csvGraph4IO_test')]
-
-idxEdges=-1
-dictIndexEdges={}
-for key in dictEdges.keys():
-    idxEdges+=1
-    val=dictEdges[key]
-    dictIndexEdges[key]=idxEdges
-    f1 = open(fopCsvGNNTrain + 'edges_{}.csv'.format(idxEdges),'w')
-    f1.write('graph_id,src_id,dst_id\n')
-    f1.close()
-    f1 = open(fopCsvGNNTest + 'edges_{}.csv'.format(idxEdges),'w')
-    f1.write('graph_id,src_id,dst_id\n')
-    f1.close()
-
-    strEdge='- file_name: edges_{}.csv\n  etype: [{}, {}, {}]'.format(idxEdges,val[0],val[1],val[2])
-    lstYamlTrain.append(strEdge)
-    lstYamlTest.append(strEdge)
+lstYamlTrain=['dataset_name: {}\nedge_data:\n'.format(fopCsvGNNTrain)]
+# lstYamlTest=['dataset_name: {}\nedge_data:\n'.format(fopCsvGNNTest)]
+idxEdges=0
+strEdge='- file_name: edges_{}.csv\n  etype: [{}, {}, {}]'.format(idxEdges,'jobid','call','jabid')
+lstYamlTrain.append(strEdge)
+# lstYamlTest.append(strEdge)
+strEdge='- file_name: edges_{}.csv\n  etype: [{}, {}, {}]'.format(idxEdges,'jobid','callrev','jabid')
+lstYamlTrain.append(strEdge)
+# lstYamlTest.append(strEdge)
 
 lstYamlTrain.append('node_data:')
-lstYamlTest.append('node_data:')
-
-for i in range(0,len(lstHeaderCols)-1):
-    f1=open(fopCsvGNNTrain+'nodes_{}.csv'.format(i),'w')
-    f1.write('graph_id,node_id,feat\n')
-    f1.close()
-    f1 = open(fopCsvGNNTest + 'nodes_{}.csv'.format(i),'w')
-    f1.write('graph_id,node_id,feat\n')
-    f1.close()
-    strNode='- file_name: nodes_{}.csv\n  ntype: {}'.format(i,lstHeaderCols[i])
-    lstYamlTrain.append(strNode)
-    lstYamlTest.append(strNode)
+# lstYamlTest.append('node_data:')
+idxNodes=0
+f1=open(fopCsvGNNTrain+'nodes_{}.csv'.format(idxNodes),'w')
+f1.write('graph_id,node_id,feat\n')
+f1.close()
+# f1 = open(fopCsvGNNTest + 'nodes_{}.csv'.format(idxNodes),'w')
+# f1.write('graph_id,node_id,feat\n')
+# f1.close()
+strNode='- file_name: nodes_{}.csv\n  ntype: {}'.format(idxEdges,'jobid')
+lstYamlTrain.append(strNode)
+# lstYamlTest.append(strNode)
 
 strGraphInfo='graph_data:\n  file_name: graphs.csv'
 lstYamlTrain.append(strGraphInfo)
-lstYamlTest.append(strGraphInfo)
+# lstYamlTest.append(strGraphInfo)
 
 f1=open(fopCsvGNNTrain+'meta.yaml','w')
 f1.write('\n'.join(lstYamlTrain))
 f1.close()
-f1=open(fopCsvGNNTest+'meta.yaml','w')
-f1.write('\n'.join(lstYamlTest))
-f1.close()
+# f1=open(fopCsvGNNTest+'meta.yaml','w')
+# f1.write('\n'.join(lstYamlTest))
+# f1.close()
 
 
 
 f1=open(fopCsvGNNTrain+'graphs.csv','w')
 f1.write('graph_id,label\n')
 f1.close()
-f1=open(fopCsvGNNTest+'graphs.csv','w')
-f1.write('graph_id,label\n')
+# f1=open(fopCsvGNNTest+'graphs.csv','w')
+# f1.write('graph_id,label\n')
+# f1.close()
+
+f1=open(fopCsvGNNTrain+'nodes_0.csv','w')
+f1.write('graph_id,node_id,feat\n')
+f1.close()
+# f1=open(fopCsvGNNTest+'nodes_0.csv','w')
+# f1.write('graph_id,node_id,feat\n')
+# f1.close()
+
+f1=open(fopCsvGNNTrain+'edges_0.csv','w')
+f1.write('graph_id,src_id,dst_id\n')
+f1.close()
+# f1=open(fopCsvGNNTest+'edges_1.csv','w')
+# f1.write('graph_id,src_id,dst_id\n')
+# f1.close()
+f1=open(fopCsvGNNTrain+'edges_1.csv','w')
+f1.write('graph_id,src_id,dst_id\n')
 f1.close()
 
 
-
-
-
-f1=open(file_tot_performace_tagged,'r')
-
-lstOutputs=[]
-idxLine=-1
-f1=open(fpPreprocessFile,'w')
-f1.write('')
-f1.close()
-lstStrGraphInfo=[]
-dictStrEdges={}
-dictStrNodes={}
-for i in range(0,len(lstHeaderCols)):
-    dictStrNodes[i]=[]
-idxEdges=-1
-for key in dictEdges.keys():
-    idxEdges+=1
-    val=dictEdges[key]
-    dictStrEdges[idxEdges]=[]
-
-isInTest=False
-isNeedToWrite=False
-with open(file_tot_performace_tagged) as infile:
-    for line in infile:
-        try:
-            idxLine+=1
-            lstOutputs.append(line)
-            selectedFolder = fopCsvGNNTrain
-            if idxLine==0:
-                # lstHeaderCols=line.split(',')
-                continue
-                pass
-            elif idxLine<=numberTrain:
-                idxGraph=idxLine-1
-                lstItemValues=[float(it) for it in line.split(',')]
-                labelItem=lstItemValues[len(lstItemValues)-1]
-
-                lstStrGraphInfo.append('{},{}'.format(idxGraph,labelItem))
-                for idxFeat in range(0,len(lstItemValues)-1):
-                    typeName=lstHeaderCols[idxFeat]
-                    strVectorInfo = '{},{}'.format(lstItemValues[idxFeat],
-                                                   ','.join(['{}'.format(lstItemValues[idxFeat]) for it in range(0, 9)]))
-                    # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
-                    strAddNode='{},{},"{}"'.format(idxGraph,0,strVectorInfo)
-                    dictStrNodes[idxFeat].append(strAddNode)
-                    if idxFeat>0:
-                        prevTypeName=lstHeaderCols[idxFeat-1]
-                        strKeyEdge='{}_AA_{}'.format(prevTypeName,typeName)
-                        idxEdge=dictIndexEdges[strKeyEdge]
-                        dictStrEdges[idxEdge].append('{},{},{}'.format(idxGraph,0,0))
-                if idxLine==numberTrain:
-                    isNeedToWrite=True
-                pass
-            else:
-                idxGraph=idxLine-numberTrain-1
-                isInTest=True
-                isNeedToWrite=False
-                lstItemValues = [float(it) for it in line.split(',')]
-                labelItem = lstItemValues[len(lstItemValues) - 1]
-                selectedFolder = fopCsvGNNTest
-                lstStrGraphInfo.append('{},{}'.format(idxGraph, labelItem))
-                for idxFeat in range(0, len(lstItemValues)-1):
-                    typeName = lstHeaderCols[idxFeat]
-                    strVectorInfo = '{},{}'.format(lstItemValues[idxFeat],
-                                                   ','.join(['{}'.format(lstItemValues[idxFeat]) for it in range(0, 9)]))
-                    # strVectorInfo = '{}'.format(lstItemValues[idxFeat])
-                    strAddNode = '{},{},"{}"'.format(idxGraph, 0, strVectorInfo)
-                    dictStrNodes[idxFeat].append(strAddNode)
-                    if idxFeat > 0:
-                        prevTypeName = lstHeaderCols[idxFeat - 1]
-                        strKeyEdge = '{}_AA_{}'.format(prevTypeName, typeName)
-                        idxEdge = dictIndexEdges[strKeyEdge]
-                        dictStrEdges[idxEdge].append('{},{},{}'.format(idxGraph, 0, 0))
-                pass
-
-
-        except Exception as e:
-            traceback.print_exc()
-        # if idxLine<=100:
-        #     print(line.replace(',','\t'))
-            # input('bbb')
-        if idxLine % cacheSize == 0 or (idxLine+1) == numberSelected or isNeedToWrite:
-            print('{}\t{}'.format(idxLine,line))
-            f1 = open(fpPreprocessFile, 'a')
-            f1.write('\n'.join(lstOutputs) + '\n')
+lstCaches=[]
+lstCachesNodes=[]
+lstCachesEdges0=[]
+lstCachesEdges1=[]
+cacheSize=1000
+for i in range(0,len(list_y_train)):
+    try:
+        strWrite='{},{}'.format(i,list_y_train[i])
+        strNode='{},0,"{}"'.format(i,",".join(map(str,list_x_train[i])))
+        strEdge0 = '{},{},{}'.format(i, 0,0)
+        strEdge1 = '{},{},{}'.format(i, 0, 0)
+        lstCaches.append(strWrite)
+        lstCachesNodes.append(strNode)
+        lstCachesEdges0.append(strEdge0)
+        lstCachesEdges1.append(strEdge1)
+    except Exception as e:
+        traceback.print_exc()
+    if (i+1)%cacheSize==0 or (i+1)==len(list_y_train):
+        if len(lstCaches)>0:
+            f1 = open(fopCsvGNNTrain + 'graphs.csv', 'a')
+            f1.write('\n'.join(lstCaches)+'\n')
             f1.close()
-            lstOutputs = []
-
-            f1=open(selectedFolder+'graphs.csv','a')
-            f1.write('\n'.join(lstStrGraphInfo)+'\n')
+            f1 = open(fopCsvGNNTrain + 'nodes_0.csv', 'a')
+            f1.write('\n'.join(lstCachesNodes) + '\n')
             f1.close()
-            lstStrGraphInfo=[]
-
-            for idxFeat in range(0, len(lstHeaderCols)-1):
-                f1=open(selectedFolder+'nodes_{}.csv'.format(idxFeat),'a')
-                f1.write('\n'.join(dictStrNodes[idxFeat])+'\n')
-                f1.close()
-                dictStrNodes[idxFeat]=[]
-
-            idxEdge=-1
-            for keyEdge in dictStrEdges.keys():
-                lstEdgeValue=dictStrEdges[keyEdge]
-                idxEdge+=1
-                f1=open(selectedFolder+'edges_{}.csv'.format(idxEdge),'a')
-                f1.write('\n'.join(dictStrEdges[idxEdge])+'\n')
-                f1.close()
-                dictStrEdges[keyEdge]=[]
+            f1 = open(fopCsvGNNTrain + 'edges_0.csv', 'a')
+            f1.write('\n'.join(lstCachesEdges0) + '\n')
+            f1.close()
+            f1 = open(fopCsvGNNTrain + 'edges_1.csv', 'a')
+            f1.write('\n'.join(lstCachesEdges0) + '\n')
+            f1.close()
+            lstCaches=[]
+            lstCachesNodes=[]
+            lstCachesEdges0 = []
+            lstCachesEdges1 = []
 
 
+lstCaches=[]
+lstCachesNodes=[]
+lstCachesEdges0=[]
+lstCachesEdges1=[]
 
-        if idxLine==numberSelected:
-            break
-        # print(line)
-if len(lstOutputs)>0:
-    f1 = open(fpPreprocessFile, 'a')
-    f1.write('\n'.join(lstOutputs) + '\n')
-    f1.close()
-    lstOutputs = []
+lenTrain=len(list_y_train)
+for i in range(0,len(list_y_test)):
+    try:
+        indexTest=i+lenTrain
+        strWrite='{},{}'.format(indexTest,list_y_test[i])
+        strNode = '{},0,"{}"'.format(indexTest, ",".join(map(str, list_x_test[i])))
+        strEdge0 = '{},{},{}'.format(indexTest, 0, 0)
+        strEdge1 = '{},{},{}'.format(indexTest, 0, 0)
+        lstCaches.append(strWrite)
+        lstCachesNodes.append(strNode)
+        lstCachesEdges0.append(strEdge0)
+        lstCachesEdges1.append(strEdge1)
+    except Exception as e:
+        traceback.print_exc()
+    if (i+1)%cacheSize==0 or (i+1)==len(list_y_test):
+        if len(lstCaches)>0:
+            f1 = open(fopCsvGNNTrain + 'graphs.csv', 'a')
+            f1.write('\n'.join(lstCaches)+'\n')
+            f1.close()
+            f1 = open(fopCsvGNNTrain + 'nodes_0.csv', 'a')
+            f1.write('\n'.join(lstCachesNodes) + '\n')
+            f1.close()
+            f1 = open(fopCsvGNNTrain + 'edges_0.csv', 'a')
+            f1.write('\n'.join(lstCachesEdges0) + '\n')
+            f1.close()
+            f1 = open(fopCsvGNNTrain + 'edges_1.csv', 'a')
+            f1.write('\n'.join(lstCachesEdges0) + '\n')
+            f1.close()
+            lstCaches = []
+            lstCachesNodes = []
+            lstCachesEdges0 = []
+            lstCachesEdges1 = []
+
+# f1=open(fopCsvGNNTest+'edges_1.csv','w')
+# f1.write('graph_id,src_id,dst_id\n')
+# f1.close()
